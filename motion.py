@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import keras
 from keras.layers import Conv2D, Dense, Reshape, Activation
-from convDeconv import conv_deconv_net
+from util import conv_deconv_net
 
 
 def sin_relu(x):
@@ -49,8 +49,8 @@ class OpticalTransformer():
         self.cam_intrinsics = intrinsics
         self.img_w = self.np_tf(img_shape[0])
         self.img_h = self.np_tf(img_shape[1])
-        self.img_w_ = float(img_shape[0])
-        self.img_h_ = float(img_shape[1])
+        self.img_w_ = int(img_shape[0])
+        self.img_h_ = int(img_shape[1])
 
         self.cx_ = self.cam_intrinsics[0]
         self.cy_ = self.cam_intrinsics[1]
@@ -196,25 +196,27 @@ class OpticalTransformer():
         x_linspace = tf.reshape(x_linspace, [1, -1])  # shape [1, w * h]
         y_linspace = tf.reshape(y_linspace, [1, -1])  # shape [1, w * h]
         pos_ori = tf.concat([x_linspace, y_linspace], 0)  # shape [2, w * h]
-        flow = tf.subtract(pos_2d_new, pos_ori)  # [b, 2, w * h]
+        flow = tf.subtract(pos_2d_new, pos_ori)  # shape [b, 2, w * h]
 
         return flow
 
     def __call__(self, x, cam_motion, obj_motion, ):
         self.build(cam_motion, obj_motion, x)
 
-        point_cloud, motion_map = self.obj_motion_transform(x)
-        point_cloud = self.cam_motion_transform(point_cloud)
+        point_cloud, motion_map = self.obj_motion_transform(x)  # shape [b, 3, w * h], shape [b, k_obj, 3, w * h]
+        point_cloud = self.cam_motion_transform(point_cloud)  # shape [b, 3, w * h]
 
-        pix_pos = self.transform_2d(point_cloud)
-        flow = self.get_flow(pix_pos)
+        pix_pos = self.transform_2d(point_cloud)  # shape [b, 2, w * h]
+        flow = self.get_flow(pix_pos)  # shape [b, 2, w * h]
 
-        motion_map = tf.reshape(motion_map, (-1, self.img_h, self.img_w, 1))  # shape [b * 3 * k_obj, h, w, 1]
+        motion_map = tf.reshape(motion_map, (-1, self.img_h_, self.img_w_, 1))  # shape [b * 3 * k_obj, h, w, 1]
+        return pix_pos, flow, point_cloud, motion_map  # shape [b, 2, w * h], shape [b, 2, w * h], shape [b, 3, w * h], shape [b * 3 * k_obj, h, w, 1]
+
+
+def motion_net(input_frame_0, input_frame_1, point_cloud_0, reuse=False):
+    with tf.variable_scope('motion_net', reuse=reuse):
+        cam_motion, obj_motion = param_net(input_frame_0, input_frame_1, k_obj=4, )
+        pix_pos, flow, point_cloud, motion_map = OpticalTransformer()(point_cloud_0, cam_motion, obj_motion, )  # shape [b, 2, w * h], shape [b, 2, w * h], shape [b * 3 * k_obj, h, w, 1]
         return pix_pos, flow, point_cloud, motion_map
-
-
-
-
-
 
 

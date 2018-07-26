@@ -1,18 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
 import tensorflow as tf
-import skimage
 from skimage.transform import resize
-import keras
 import imageio
 import os
-from keras.layers import Dense, Deconv2D, Conv2D, BatchNormalization, Activation, Concatenate, Reshape, Conv1D, Permute
+from keras import backend as K
 
 imageio.plugins.ffmpeg.download()
-
-
-
 
 f = 'epochs/epoch01_front.mkv'
 
@@ -48,11 +42,7 @@ def img_pre_process(img):
     return resize_img  # np.resize(img, (w, h, c)
 
 
-from keras.engine.topology import Layer
-
 sess = tf.Session()
-
-from keras import backend as K
 
 K.set_session(sess)
 
@@ -74,5 +64,7 @@ assert steering.shape.as_list() == [None, 1]
 
 
 
+from structure import structure_net
 
-
+f_point_cloud_1, f_depth_output = structure_net(I_t0)
+b_point_cloud_1, b_depth_output = structure_net(I_t1, reuse=tf.AUTO_REUSE)

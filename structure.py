@@ -1,7 +1,7 @@
 import tensorflow as tf
 import keras
 from keras.layers import Conv2D, Activation
-from convDeconv import conv_deconv_net
+from util import conv_deconv_net
 
 
 def clip_relu(x):
