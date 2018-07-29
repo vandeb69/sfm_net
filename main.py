@@ -64,7 +64,7 @@ assert steering.shape.as_list() == [None, 1]
 
 
 
-from structure import structure_net
+from modules.sfm_net.structure import structure_net
 
 f_point_cloud_1, f_depth_output = structure_net(I_t0)
 b_point_cloud_1, b_depth_output = structure_net(I_t1, reuse=tf.AUTO_REUSE)
