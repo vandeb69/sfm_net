@@ -27,7 +27,7 @@ class VideoReader:
             raise StopIteration
 
 
-class DeepTesla_SfmNetLoader():
+class SfmNetLoader_DeepTesla():
     def __init__(self, config):
         self.config = config
         self.frames_t0 = VideoReader(self.config.video_file, start=0, preprocesser=self.DeepTesla_preprocess)
@@ -80,7 +80,7 @@ if __name__ == "__main__":
                        "image_height": 128,
                        "image_width": 384,
                        "num_channels": 3})
-    loader = DeepTesla_SfmNetLoader(config)
+    loader = SfmNetLoader_DeepTesla(config)
 
     sess = tf.Session()
     sess.run(loader.initialize)

@@ -18,7 +18,7 @@ class DefinedSummarizer:
 
         self.summary_tags = []
         self.summary_placeholders = {}
-        self.summary_ops = ()
+        self.summary_ops = []
 
         self.init_summary_ops()
 
@@ -47,7 +47,7 @@ class DefinedSummarizer:
         Add the summaries to tensorboard
         :param step: the number of iteration in your training
         :param summaries_dict: the dictionary which contains your summaries
-        :param summaries_merged: merged summaries which they come from your graph
+        :param summaries_merged: merged summaries which come from your graph
         :return:
         """
         if summaries_dict is not None:
