@@ -1,300 +1,92 @@
-import pickle
-
-from tqdm import tqdm
-
+from easydict import EasyDict
 import tensorflow as tf
-import numpy as np
 import imageio
+from skimage.transform import resize
 
 
-class DeepTeslaLoader:
+class VideoReader:
+    def __init__(self, video_file, start, preprocesser):
+        self.preprocesser = preprocesser
+        self.reader = imageio.get_reader(video_file)
+        for _ in range(start):
+            _ = self.reader.get_next_data()
+        self.max = self.reader.get_length() - 3
+        self.i = start
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.i <= self.max:
+            frame = self.reader.get_next_data()
+            frame = self.preprocesser(frame)
+            self.i += 1
+            return frame
+        else:
+            self.reader.close()
+            raise StopIteration
+
+
+class DeepTesla_SfmNetLoader():
     def __init__(self, config):
         self.config = config
+        self.frames_t0 = VideoReader(self.config.video_file, start=0, preprocesser=self.DeepTesla_preprocess)
+        self.frames_t1 = VideoReader(self.config.video_file, start=1, preprocesser=self.DeepTesla_preprocess)
+        self.generator_t0 = self.frames_t0.__iter__
+        self.generator_t1 = self.frames_t1.__iter__
 
-        self.reader = imageio.get_reader(self.config.video_file)
-        self.num_frames = self.reader.get_length()-2
-        self.start_ix = 1
-        self.cur_frame_t0 = self.reader.get_next_data()[np.newaxis]
-        self.end_ix = 1
+        self.dataset = None
+        self.iterator = None
+        self.initialize = None
+        self.saveable = None
+        self.next_batch = None
 
-        dataset = tf.data.Dataset().from_generator(self.batch_generator, output_types=tf.float32,
-                                                   output_shapes=(tf.TensorShape([None, 720, 1280, 3])))
-        self.iter = dataset.make_initializable_iterator()
-        self.el = self.iter.get_next()
+        self.build_dataset_operator()
 
-    def batch_generator(self):
-        frames_t0 = self.cur_frame_t0
-        for _ in range(self.config.batch_size - 1):
-            if (self.end_ix + 1) < self.num_frames:
-                frames_t0_i = self.reader.get_next_data()[np.newaxis]
-                frames_t0 = np.append(frames_t0, frames_t0_i, axis=0)
-                self.end_ix += 1
-            else:
-                break
+    @staticmethod
+    def DeepTesla_preprocess(img):
+        """
+        Processes the image and returns it
+        :param img: The image to be processed
+        :return: Returns the processed image
+        """
+        shape = img.shape
+        img = img[int(shape[0] / 3):shape[0] - 150, 0:shape[1]]
+        img = img / 255.
 
-        frames_t1 = frames_t0[1:, :, :, :]
-        try:
-            self.cur_frame_t0 = frames_t1_b = self.reader.get_next_data()[np.newaxis]
-        except:
-            return None, None
-        frames_t1 = np.append(frames_t1, frames_t1_b, axis=0)
+        resize_img = resize(img, (128, 384), mode='reflect')
+        return resize_img
 
-        print("t0: {start_t0}-{end_t0}; t1: {start_t1}-{end_t1}; total: {total}".format(
-            start_t0=self.start_ix,
-            end_t0=self.end_ix,
-            total=self.num_frames,
-            start_t1=self.start_ix + 1,
-            end_t1=self.end_ix + 1
-        ))
-        self.start_ix = self.end_ix + 1
-        self.end_ix = self.start_ix
+    def build_dataset_operator(self):
+        img_h = self.config.image_height
+        img_w = self.config.image_width
+        img_c = self.config.num_channels
 
-        return frames_t0, frames_t1
-
-    def next_batch(self):
-        with tf.Session() as sess:
-            sess.run(self.iter.initializer)
-            out = sess.run(self.el)
+        dataset_t0 = tf.data.Dataset.from_generator(self.generator_t0, tf.float32,
+                                                    tf.TensorShape([img_h, img_w, img_c]))
+        dataset_t1 = tf.data.Dataset.from_generator(self.generator_t1, tf.float32,
+                                                    tf.TensorShape([img_h, img_w, img_c]))
+        dataset = tf.data.Dataset.zip((dataset_t0, dataset_t1))
+        self.dataset = dataset.batch(self.config.batch_size)
+        self.iterator = self.dataset.make_initializable_iterator()
+        self.initialize = self.iterator.initializer
+        self.saveable = tf.contrib.data.make_saveable_from_iterator(self.iterator)
+        self.next_batch = self.iterator.get_next()
 
 
-if __name__ == '__main__':
-    from easydict import EasyDict
-
+if __name__ == "__main__":
     config = EasyDict({"video_file": "../data/deeptesla/epochs/epoch01_front.mkv",
-              "batch_size": 10})
+                       "batch_size": 10,
+                       "image_height": 128,
+                       "image_width": 384,
+                       "num_channels": 3})
+    loader = DeepTesla_SfmNetLoader(config)
 
-    data_loader = DeepTeslaLoader(config)
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
-    I_t0, I_t1 = data_loader.next_batch()
+    sess = tf.Session()
+    sess.run(loader.initialize)
+    while True:
+        try:
+            I_t0, I_t1 = sess.run(loader.next_batch)
+        except tf.errors.OutOfRangeError:
+            print("End of dataset")
+            break
