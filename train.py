@@ -6,6 +6,7 @@ from structure import structure_net
 from motion import motion_net
 from loss import get_frame_loss, get_smooth_loss, get_fb_depth_loss
 
+
 def model_input(img_h, img_w, img_c):
     I_t0 = tf.placeholder(tf.float32, (None, img_h, img_w, img_c), name='frame_t0')
     I_t1 = tf.placeholder(tf.float32, (None, img_h, img_w, img_c), name='frame_t1')
