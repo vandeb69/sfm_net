@@ -1,0 +1,20 @@
+{
+  "exp_name": "example_sfm_net",
+
+  "image_height": 128,
+  "image_width": 384,
+  "num_channels": 3,
+
+  "learning_rate": 0.0003,
+  "beta1": 0.9,
+
+  "batch_size": 20,
+  "num_epochs": 100,
+
+  "checkpoint_dir": "./checkpoint/",
+  "summary_dir": "./summary/",
+  "max_to_keep": 5,
+
+  "data_loader": "DeepTeslaLoader",
+  "video_file": "/data/deeptesla/epochs/epoch01_front.mkv"
+}
