@@ -17,6 +17,6 @@
   "summary_dir": "./summary/",
 
 
-  "data_loader": "SfmNetLoader_DeepTesla",
+  "data_loader": "SfmNetLoader_DeepTesla_SingleVideo",
   "video_file": "data/deeptesla/epochs/epoch01_front.mkv"
 }

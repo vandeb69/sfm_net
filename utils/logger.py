@@ -18,7 +18,7 @@ class DefinedSummarizer:
 
         self.summary_tags = []
         self.summary_placeholders = {}
-        self.summary_ops = []
+        self.summary_ops = {}
 
         self.init_summary_ops()
 
@@ -104,3 +104,27 @@ class Logger:
                 for summary in summary_list:
                     summary_writer.add_summary(summary, step)
                 summary_writer.flush()
+
+
+if __name__ == "__main__":
+    import tensorflow as tf
+    from easydict import EasyDict
+    import sys
+
+    sys.path.extend(['..', '.'])
+
+    config = EasyDict({"image_height": 128,
+                       "image_width": 384,
+                       "num_channels": 3,
+                       "learning_rate": 0.0003,
+                       "beta1": 0.9,
+                       "max_to_keep": 5,
+                       "batch_size": 1,
+                       "data_loader": "SfmNetLoader_DeepTesla_SingleVideo",
+                       "video_file": "../data/deeptesla/epochs/epoch01_front.mkv",
+                       "summary_dir": "../summary/",
+                       "checkpoint_dir": "../checkpoint/"
+                       })
+
+    sess = tf.Session()
+    logger = DefinedSummarizer(sess, config.summary_dir, scalar_tags=['train/loss_per_epoch'])

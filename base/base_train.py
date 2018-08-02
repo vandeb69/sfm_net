@@ -18,6 +18,8 @@ class BaseTrain:
         self.sess = sess
         if data_loader is not None:
             self.data_loader = data_loader
+        elif self.model.data_loader is not None:
+            self.data_loader = self.model.data_loader
 
         self.init = tf.global_variables_initializer()
         self.sess.run(self.init)
