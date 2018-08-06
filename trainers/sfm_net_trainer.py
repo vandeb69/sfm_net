@@ -17,7 +17,8 @@ class SfmNetTrainer(BaseTrain):
         :return:
         """
         # initialize dataset
-        self.sess.run(self.model.data_loader.initialize)
+        self.data_loader.build_dataset_op()
+        sess.run(self.data_loader.iterator.initializer)
         # self.data_loader.initialize(self.sess, is_train=True)
 
         # initialize tqdm
@@ -53,12 +54,7 @@ Epoch={}  loss: {:.4f}
         :return: tuple of some metrics to be used in summaries
         """
         feed_dict = {self.model.is_training: True}
-        try:
-            _, loss = self.sess.run([self.model.train_step, self.model.total_loss], feed_dict=feed_dict)
-        except tf.errors.OutOfRangeError:
-            print("End of dataset")
-            self.sess.run(self.data_loader.initialize)
-            _, loss = self.sess.run([self.model.train_step, self.model.total_loss], feed_dict=feed_dict)
+        _, loss = self.sess.run([self.model.train_step, self.model.total_loss], feed_dict=feed_dict)
 
         self.sess.run(self.model.increment_global_step_tensor)
 

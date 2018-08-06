@@ -93,7 +93,8 @@ if __name__ == "__main__":
     # run some training iterations as example
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        sess.run(model.data_loader.initialize)
+        # model.data_loader.initialize(sess)
+        model.data_loader.initialize(sess)
 
         for _ in range(30):
             _, loss = sess.run([model.train_step, model.total_loss], feed_dict={model.is_training: True})
