@@ -45,9 +45,9 @@ class SfmNetLoader_DeepTesla_SingleVideo():
 
         print("Data loaded successfully..")
 
-    def build_dataset_op(self):
-        self.frames_t0 = VideoReader(self.config.video_file, start=0, preprocesser=self.DeepTesla_preprocess)
-        self.frames_t1 = VideoReader(self.config.video_file, start=1, preprocesser=self.DeepTesla_preprocess)
+    def build_dataset_op(self, start=0):
+        self.frames_t0 = VideoReader(self.config.video_file, start=start, preprocesser=self.DeepTesla_preprocess)
+        self.frames_t1 = VideoReader(self.config.video_file, start=start + 1, preprocesser=self.DeepTesla_preprocess)
         self.generator_t0 = self.frames_t0.__iter__
         self.generator_t1 = self.frames_t1.__iter__
 
@@ -63,13 +63,10 @@ class SfmNetLoader_DeepTesla_SingleVideo():
                                                     tf.TensorShape([img_h, img_w, img_c]))
         dataset = tf.data.Dataset.zip((dataset_t0, dataset_t1))
         self.dataset = dataset.batch(self.config.batch_size).repeat()
-        self.iterator = self.dataset.make_initializable_iterator()
+        self.iterator = self.dataset.make_one_shot_iterator()
         # self.saveable = tf.contrib.data.make_saveable_from_iterator(self.iterator)
+        # tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, self.saveable)
         self.next_batch = self.iterator.get_next()
-
-    def initialize(self, sess):
-        self.build_dataset_op()
-        sess.run(self.iterator.initializer)
 
     @staticmethod
     def DeepTesla_preprocess(img):
@@ -87,11 +84,14 @@ class SfmNetLoader_DeepTesla_SingleVideo():
 
 
 if __name__ == "__main__":
+    import numpy as np
+
     config = EasyDict({"video_file": "../data/deeptesla/epochs/epoch01_front.mkv",
                        "batch_size": 100,
                        "image_height": 128,
                        "image_width": 384,
                        "num_channels": 3})
+
     loader = SfmNetLoader_DeepTesla_SingleVideo(config)
 
     sess = tf.Session()
@@ -105,3 +105,5 @@ if __name__ == "__main__":
             print("Reinitializing...")
             loader.initialize(sess)
             continue
+
+

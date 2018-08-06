@@ -17,14 +17,15 @@ class SfmNetTrainer(BaseTrain):
         :return:
         """
         # initialize dataset
-        self.data_loader.build_dataset_op()
-        sess.run(self.data_loader.iterator.initializer)
+        self.step = self.model.global_step_tensor.eval(self.sess) % self.data_loader.num_iterations
+        print(self.step)
+        self.data_loader.build_dataset_op(start=self.step)
         # self.data_loader.initialize(self.sess, is_train=True)
 
         # initialize tqdm
         # loop = tqdm(range(self.data_loader.num_iterations), total=self.data_loader.num_iterations,
         #             desc="epoch-{}".format(epoch))
-        loop = range(self.data_loader.num_iterations)
+        loop = range(self.data_loader.num_iterations - self.step)
 
         loss_per_epoch = AverageMeter()
 
@@ -55,20 +56,31 @@ Epoch={}  loss: {:.4f}
         """
         feed_dict = {self.model.is_training: True}
         _, loss = self.sess.run([self.model.train_step, self.model.total_loss], feed_dict=feed_dict)
+        f_frame_loss, b_frame_loss = self.sess.run([self.model.f_frame_loss, self.model.b_frame_loss])
+        f_flow_sm_loss, b_flow_sm_loss = self.sess.run([self.model.f_flow_sm_loss, self.model.b_flow_sm_loss])
+        f_motion_sm_loss, b_motion_sm_loss = self.sess.run([self.model.f_motion_sm_loss, self.model.b_motion_sm_loss])
+        f_depth_loss, b_depth_loss = self.sess.run([self.model.f_depth_loss, self.model.b_depth_loss])
 
         self.sess.run(self.model.increment_global_step_tensor)
 
         summaries_dict = {
-            'train/loss_per_step': loss
+            'train/loss_per_step': loss,
+            'train/f_frame_loss': f_frame_loss,
+            'train/b_frame_loss': b_frame_loss,
+            'train/f_flow_sm_loss': f_flow_sm_loss,
+            'train/b_flow_sm_loss': b_flow_sm_loss,
+            'train/f_motion_sm_loss': f_motion_sm_loss,
+            'train/b_motion_sm_loss': b_motion_sm_loss,
+            'train/f_depth_loss': f_depth_loss,
+            'train/b_depth_loss': b_depth_loss
         }
-        global_step = self.model.global_step_tensor.eval(self.sess)
-        self.logger.summarize(global_step, summaries_dict)
 
-        print("""
-    Step={} loss: {:.4f}
-        """.format(global_step, loss))
+        self.global_step = self.model.global_step_tensor.eval(self.sess)
+        self.logger.summarize(self.global_step, summaries_dict)
 
-        if (global_step % 20) == 0:
+        print("\tStep={} loss: {:.4f}".format(self.global_step, loss))
+
+        if (self.global_step % 20) == 0:
             self.model.save(self.sess)
 
         return loss
@@ -96,13 +108,24 @@ if __name__ == "__main__":
                        "data_loader": "SfmNetLoader_DeepTesla_SingleVideo",
                        "video_file": "../data/deeptesla/epochs/epoch01_front.mkv",
                        "summary_dir": "../summary/",
-                       "checkpoint_dir": "../checkpoint/"
+                       "checkpoint_dir": "../checkpoint/",
+                       "model_name": "sfm_net_deeptesla"
                        })
     create_dirs([config.summary_dir, config.checkpoint_dir])
 
     model = SfmNetModel(config)
 
     sess = tf.Session()
-    logger = DefinedSummarizer(sess, config.summary_dir, scalar_tags=['train/loss_per_epoch', 'train/loss_per_step'])
+    logger = DefinedSummarizer(sess, config.summary_dir, scalar_tags=['train/loss_per_epoch',
+                                                                      'train/loss_per_step',
+                                                                      'train/f_frame_loss',
+                                                                      'train/b_frame_loss',
+                                                                      'train/f_flow_sm_loss',
+                                                                      'train/b_flow_sm_loss',
+                                                                      'train/f_depth_sm_loss',
+                                                                      'train/f_motion_sm_loss',
+                                                                      'train/b_motion_sm_loss',
+                                                                      'train/f_depth_loss',
+                                                                      'train/b_depth_loss'])
     trainer = SfmNetTrainer(sess, model, config, logger)
     trainer.train()

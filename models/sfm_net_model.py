@@ -66,6 +66,11 @@ class SfmNetModel(BaseModel):
 
         print("Model graph was build..")
 
+    def init_data(self, sess):
+        self.data_loader.initialize(sess)
+
+        print("Data loader was initialized..")
+
     def init_saver(self):
         self.saver = tf.train.Saver(max_to_keep=self.config.max_to_keep)
 
@@ -94,7 +99,7 @@ if __name__ == "__main__":
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         # model.data_loader.initialize(sess)
-        model.data_loader.initialize(sess)
+        sess.run(model.data_loader.iterator.initializer)
 
         for _ in range(30):
             _, loss = sess.run([model.train_step, model.total_loss], feed_dict={model.is_training: True})

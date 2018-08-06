@@ -19,7 +19,7 @@ class BaseModel:
 
     def save(self, sess):
         print("Saving model...")
-        self.saver.save(sess, self.config.checkpoint_dir, self.global_step_tensor)
+        self.saver.save(sess, self.config.checkpoint_dir + self.config.model_name, self.global_step_tensor)
         print("Model saved")
 
     def load(self, sess):
