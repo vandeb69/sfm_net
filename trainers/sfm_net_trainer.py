@@ -19,7 +19,7 @@ class SfmNetTrainer(BaseTrain):
         # initialize dataset
         self.step = self.model.global_step_tensor.eval(self.sess) % self.data_loader.num_iterations
         print(self.step)
-        self.data_loader.build_dataset_op(start=self.step)
+        self.data_loader.build_dataset_op(start=self.step * self.config.batch_size)
         # self.data_loader.initialize(self.sess, is_train=True)
 
         # initialize tqdm

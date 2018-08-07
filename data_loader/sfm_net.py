@@ -43,8 +43,6 @@ class SfmNetLoader_DeepTesla_SingleVideo():
 
         self.build_dataset_op()
 
-        print("Data loaded successfully..")
-
     def build_dataset_op(self, start=0):
         self.frames_t0 = VideoReader(self.config.video_file, start=start, preprocesser=self.DeepTesla_preprocess)
         self.frames_t1 = VideoReader(self.config.video_file, start=start + 1, preprocesser=self.DeepTesla_preprocess)
@@ -67,6 +65,8 @@ class SfmNetLoader_DeepTesla_SingleVideo():
         # self.saveable = tf.contrib.data.make_saveable_from_iterator(self.iterator)
         # tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, self.saveable)
         self.next_batch = self.iterator.get_next()
+
+        print("Data loaded successfully..")
 
     @staticmethod
     def DeepTesla_preprocess(img):
