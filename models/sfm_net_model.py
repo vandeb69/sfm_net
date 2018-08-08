@@ -61,8 +61,8 @@ class SfmNetModel(BaseModel):
                               self.f_frame_loss + self.b_depth_loss + self.b_depth_sm_loss + self.b_motion_sm_loss + \
                               self.b_flow_sm_loss + self.b_frame_loss
 
-            self.train_step = tf.train.AdamOptimizer(learning_rate=self.config.learning_rate,
-                                                     beta1=self.config.beta1).minimize(self.total_loss)
+            self.train_op = tf.train.AdamOptimizer(learning_rate=self.config.learning_rate,
+                                                   beta1=self.config.beta1).minimize(self.total_loss)
 
         print("Model graph was build..")
 
@@ -102,7 +102,7 @@ if __name__ == "__main__":
         sess.run(model.data_loader.iterator.initializer)
 
         for _ in range(30):
-            _, loss = sess.run([model.train_step, model.total_loss], feed_dict={model.is_training: True})
+            _, loss = sess.run([model.train_op, model.total_loss], feed_dict={model.is_training: True})
             print(loss)
 
 

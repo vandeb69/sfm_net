@@ -31,11 +31,7 @@ class BaseTrain:
         :return:
         """
         for cur_epoch in range(self.model.cur_epoch_tensor.eval(self.sess), self.config.num_epochs + 1, 1):
-            try:
-                self.train_epoch(cur_epoch)
-            except:
-                self.data_loader.build_dataset_op()
-                self.train_epoch(cur_epoch)
+            self.train_epoch(cur_epoch)
             self.sess.run(self.model.increment_cur_epoch_tensor)
 
     def train_epoch(self, epoch=None):

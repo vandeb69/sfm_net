@@ -16,23 +16,19 @@ class SfmNetTrainer(BaseTrain):
         :param epoch: cur epoch number
         :return:
         """
-        # initialize dataset
-        self.step = self.model.global_step_tensor.eval(self.sess) % self.data_loader.num_iterations
-        print(self.step)
-        self.data_loader.build_dataset_op(start=self.step * self.config.batch_size)
-        # self.data_loader.initialize(self.sess, is_train=True)
 
-        # initialize tqdm
-        # loop = tqdm(range(self.data_loader.num_iterations), total=self.data_loader.num_iterations,
-        #             desc="epoch-{}".format(epoch))
-        loop = range(self.data_loader.num_iterations - self.step)
+        self.sess.run(self.data_loader.iterator.initializer,
+                      feed_dict={self.data_loader.filenames: self.config.file_names})
 
         loss_per_epoch = AverageMeter()
 
-        for _ in loop:
-            loss = self.train_step()
-            loss_per_epoch.update(loss)
+        while True:
+            try:
+                loss = self.train_step()
+            except tf.errors.OutOfRangeError:
+                break
 
+        loss_per_epoch.update(loss)
         self.sess.run(self.model.increment_cur_epoch_tensor)
 
         summaries_dict = {
@@ -46,8 +42,6 @@ class SfmNetTrainer(BaseTrain):
 Epoch={}  loss: {:.4f}
         """.format(epoch, loss_per_epoch.val))
 
-        # loop.close()
-
     def train_step(self):
         """
         Run the session of train_step in tensorflow
@@ -55,7 +49,7 @@ Epoch={}  loss: {:.4f}
         :return: tuple of some metrics to be used in summaries
         """
         feed_dict = {self.model.is_training: True}
-        _, loss = self.sess.run([self.model.train_step, self.model.total_loss], feed_dict=feed_dict)
+        _, loss = self.sess.run([self.model.train_op, self.model.total_loss], feed_dict=feed_dict)
         f_frame_loss, b_frame_loss = self.sess.run([self.model.f_frame_loss, self.model.b_frame_loss])
         f_flow_sm_loss, b_flow_sm_loss = self.sess.run([self.model.f_flow_sm_loss, self.model.b_flow_sm_loss])
         f_motion_sm_loss, b_motion_sm_loss = self.sess.run([self.model.f_motion_sm_loss, self.model.b_motion_sm_loss])
@@ -105,8 +99,8 @@ if __name__ == "__main__":
                        "max_to_keep": 5,
                        "batch_size": 5,
                        "num_epochs": 5,
-                       "data_loader": "SfmNetLoader_DeepTesla_SingleVideo",
-                       "video_file": "../data/deeptesla/epochs/epoch01_front.mkv",
+                       "data_loader": "SfmNetLoader_DeepTesla_TfRecords",
+                       "file_names": ["../data/deeptesla/epochs/epoch01_front.tfrecord"],
                        "summary_dir": "../summary/",
                        "checkpoint_dir": "../checkpoint/",
                        "model_name": "sfm_net_deeptesla"
