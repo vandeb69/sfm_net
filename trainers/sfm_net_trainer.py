@@ -1,5 +1,5 @@
 from base.base_train import BaseTrain
-from tqdm import tqdm
+# from tqdm import tqdm
 from utils.metrics import AverageMeter
 
 
@@ -25,10 +25,10 @@ class SfmNetTrainer(BaseTrain):
         while True:
             try:
                 loss = self.train_step()
+                loss_per_epoch.update(loss)
             except tf.errors.OutOfRangeError:
                 break
 
-        loss_per_epoch.update(loss)
         self.sess.run(self.model.increment_cur_epoch_tensor)
 
         summaries_dict = {
@@ -50,10 +50,14 @@ Epoch={}  loss: {:.4f}
         """
         feed_dict = {self.model.is_training: True}
         _, loss = self.sess.run([self.model.train_op, self.model.total_loss], feed_dict=feed_dict)
-        f_frame_loss, b_frame_loss = self.sess.run([self.model.f_frame_loss, self.model.b_frame_loss])
-        f_flow_sm_loss, b_flow_sm_loss = self.sess.run([self.model.f_flow_sm_loss, self.model.b_flow_sm_loss])
-        f_motion_sm_loss, b_motion_sm_loss = self.sess.run([self.model.f_motion_sm_loss, self.model.b_motion_sm_loss])
-        f_depth_loss, b_depth_loss = self.sess.run([self.model.f_depth_loss, self.model.b_depth_loss])
+        f_frame_loss, b_frame_loss = self.sess.run([self.model.f_frame_loss, self.model.b_frame_loss],
+                                                   feed_dict=feed_dict)
+        f_flow_sm_loss, b_flow_sm_loss = self.sess.run([self.model.f_flow_sm_loss, self.model.b_flow_sm_loss],
+                                                       feed_dict=feed_dict)
+        f_motion_sm_loss, b_motion_sm_loss = self.sess.run([self.model.f_motion_sm_loss, self.model.b_motion_sm_loss],
+                                                           feed_dict=feed_dict)
+        f_depth_loss, b_depth_loss = self.sess.run([self.model.f_depth_loss, self.model.b_depth_loss],
+                                                   feed_dict=feed_dict)
 
         self.sess.run(self.model.increment_global_step_tensor)
 
@@ -79,6 +83,32 @@ Epoch={}  loss: {:.4f}
 
         return loss
 
+    def test_step(self):
+        feed_dict = {self.model.is_training: False}
+        loss = self.sess.run(self.model.total_loss, feed_dict=feed_dict)
+        f_depth, b_depth = self.sess.run([self.model.f_depth_output, self.model.b_depth_output], feed_dict=feed_dict)
+
+        # summaries_dict = {
+        #     'test/loss': loss,
+        #     'test/f_depth': f_depth,
+        #     'test/b_depth': b_depth
+        # }
+
+        self.global_step = self.model.global_step_tensor.eval(self.sess)
+        # self.logger.summarize(self.global_step, summaries_dict)
+
+        print("\tStep={} test loss: {:.4f}".format(self.global_step, loss))
+
+        return loss, f_depth, b_depth
+
+    def test(self):
+        self.sess.run(self.data_loader.iterator.initializer,
+                      feed_dict={self.data_loader.filenames: self.config.file_names})
+
+        loss, f_depth, b_depth = self.test_step()
+
+        return loss, f_depth, b_depth
+
 
 if __name__ == "__main__":
     import tensorflow as tf
@@ -98,11 +128,11 @@ if __name__ == "__main__":
                        "beta1": 0.9,
                        "max_to_keep": 5,
                        "batch_size": 5,
-                       "num_epochs": 5,
+                       "num_epochs": 300,
                        "data_loader": "SfmNetLoader_DeepTesla_TfRecords",
                        "file_names": ["../data/deeptesla/epochs/epoch01_front.tfrecord"],
-                       "summary_dir": "../summary/",
-                       "checkpoint_dir": "../checkpoint/",
+                       "summary_dir": "../summary/test/",
+                       "checkpoint_dir": "../checkpoint/test/",
                        "model_name": "sfm_net_deeptesla"
                        })
     create_dirs([config.summary_dir, config.checkpoint_dir])
@@ -123,3 +153,5 @@ if __name__ == "__main__":
                                                                       'train/b_depth_loss'])
     trainer = SfmNetTrainer(sess, model, config, logger)
     trainer.train()
+    loss, f_depth, b_depth = trainer.test()
+    pass
