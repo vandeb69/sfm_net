@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+
 class AverageMeter:
     def __init__(self):
         self.value = 0
