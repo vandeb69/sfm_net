@@ -9,8 +9,8 @@ def clip_relu(x):
     return x
 
 
-def depth_net(frame):
-    top, _ = conv_deconv_net(frame)  # shape [1, w, h, 32]
+def depth_net(frame, is_training=True):
+    top, _ = conv_deconv_net(frame, is_training)  # shape [1, w, h, 32]
     top = Conv2D(filters=1, kernel_size=1, strides=1, padding='same', kernel_initializer=keras.initializers.glorot_normal())(top)  # shape [1, w, h, 1]
     depth = Activation(clip_relu)(top)  # shape [1, w, h, 1]
     return depth
@@ -87,8 +87,8 @@ class cloud_transformer():
         return point_cloud
 
 
-def structure_net(input_frame, reuse=False):
+def structure_net(input_frame, is_training=True, reuse=False):
     with tf.variable_scope('structure_net', reuse=reuse):
-        depth_output = depth_net(input_frame)  # shape [b, w, h, 1]
+        depth_output = depth_net(input_frame, is_training=is_training)  # shape [b, w, h, 1]
         point_cloud_output = cloud_transformer()(depth_output)  # shape [b, 3, w * h]
         return point_cloud_output, depth_output
