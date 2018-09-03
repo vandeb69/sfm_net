@@ -61,7 +61,7 @@ class SfmNetLoader_DeepTesla_TfRecords():
     def build_dataset_op(self):
         dataset = tf.data.TFRecordDataset(self.filenames)
         dataset = dataset.map(self._parse_function)
-        self.dataset = dataset.batch(self.config.batch_size).shuffle(buffer_size=10000)#.repeat()
+        self.dataset = dataset.batch(self.config.batch_size)#.shuffle(buffer_size=10000)#.repeat()
         self.iterator = self.dataset.make_initializable_iterator()
         self.next_batch = self.iterator.get_next()
 
