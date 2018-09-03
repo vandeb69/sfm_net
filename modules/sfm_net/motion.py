@@ -10,10 +10,10 @@ def sin_relu(x):
     return x
 
 
-def param_net(frame_t0, frame_t1, k_obj=4, ):
+def param_net(frame_t0, frame_t1, k_obj=4, is_training=True):
     init = keras.initializers.TruncatedNormal(mean=0.0, stddev=0.0001)
     frame_pair = tf.concat([frame_t0, frame_t1], -1)  # shape [b, w, h, 2 * c]
-    top, embed = conv_deconv_net(frame_pair)  # shape [b, w, h, 32], shape [b, w/32, h/32, 1024]
+    top, embed = conv_deconv_net(frame_pair, is_training)  # shape [b, w, h, 32], shape [b, w/32, h/32, 1024]
     mask = Conv2D(filters=k_obj, kernel_size=1, strides=1, padding='same', kernel_initializer=init)(top)  # shape [b, w, h, k_obj]
 
     embed = Dense(512, kernel_initializer=init)(embed)  # shape [b, 1, 1, 512]
@@ -213,9 +213,9 @@ class optical_transformer():
         return pix_pos, flow, point_cloud, motion_map  # shape [b, 2, w * h], shape [b, 2, w * h], shape [b, 3, w * h], shape [b * 3 * k_obj, h, w, 1]
 
 
-def motion_net(input_frame_0, input_frame_1, point_cloud_0, reuse=False):
+def motion_net(input_frame_0, input_frame_1, point_cloud_0, is_training=True, reuse=False):
     with tf.variable_scope('motion_net', reuse=reuse):
-        cam_motion, obj_motion = param_net(input_frame_0, input_frame_1, k_obj=4, )
+        cam_motion, obj_motion = param_net(input_frame_0, input_frame_1, k_obj=4, is_training=is_training)
         pix_pos, flow, point_cloud, motion_map = optical_transformer()(point_cloud_0, cam_motion, obj_motion, )  # shape [b, 2, w * h], shape [b, 2, w * h], shape [b * 3 * k_obj, h, w, 1]
         return pix_pos, flow, point_cloud, motion_map
 
